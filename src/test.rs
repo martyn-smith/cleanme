@@ -2,6 +2,24 @@ use super::clean;
 use std::env;
 use std::fs;
 
+/*
+ * Caution:
+ *
+ * This program has not been written with multithreading in mind,
+ * and by default is not multithreaded.
+ *
+ * In addition, the unit tests below test mutually incompatible behaviour.
+ * 
+ * Future work: look at mutexes, or create more subdirectories 
+ * (although running in /tmp/ also allows us to check proper handling of
+ * permission errors).
+ *
+ * In the meantime, run tests with -- --test-threads 1 as options.
+ *
+ *
+ */
+
+/*
 struct TestClean;
 
 impl Drop for TestClean {
@@ -9,6 +27,7 @@ impl Drop for TestClean {
     //std::io::ErrorKind::AlreadyExists
     fn drop(&mut self) {}
 }
+*/
 
 #[test]
 fn cleans_file() {
