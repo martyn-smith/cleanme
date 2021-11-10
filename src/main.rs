@@ -16,12 +16,14 @@ use anyhow::{Context,Result};
 use glob::glob;
 use std::{env, fs, io::ErrorKind, path::Path, path::PathBuf};
 
+const config_fname: &str = "./cleanme";
+
 #[cfg(test)]
 mod test;
 
 fn get_target(pwd: &Path) -> Option<Vec<String>> {
     Some(
-        fs::read_to_string(pwd.join(Path::new(".clean")))
+        fs::read_to_string(pwd.join(Path::new(config_fname)))
             .ok()?
             .lines()
             .filter(|&line| !(line.is_empty() || line.starts_with('#')))
@@ -36,7 +38,7 @@ fn clean(wd: &Path, clean_tgt: &Option<Vec<String>>) -> Result<()> {
      * Error handling: if we e.g. cannot access a directory, log to stderr and carry on.
      */
     let read = fs::read_dir(wd)
-        .context(format!("cannot read {} - check permissions", wd.display()));
+        .context(format!("cannot read {} - check permissions", wd.display()))?;
     /*
      * if there is a ".clean" file in the current dir, use that;
      * otherwise, use the current list (which may be empty).
@@ -81,7 +83,7 @@ fn clean(wd: &Path, clean_tgt: &Option<Vec<String>>) -> Result<()> {
     /*
      * And recurse.
      */
-    for entry in read.unwrap().into_iter() {
+    for entry in read.into_iter() {
         if let Ok(d) = entry {
             if d.path().is_dir() {
                 //TODO: do we want to return error here? Or continue the "fire and forget"
