@@ -9,8 +9,8 @@ use std::fs;
  * and by default is not multithreaded.
  *
  * In addition, the unit tests below test mutually incompatible behaviour.
- * 
- * Future work: look at mutexes, or create more subdirectories 
+ *
+ * Future work: look at mutexes, or create more subdirectories
  * (although running in /tmp/ also allows us to check proper handling of
  * permission errors).
  *

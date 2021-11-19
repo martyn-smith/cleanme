@@ -5,21 +5,33 @@
 //! For each directory is traverses, if it finds a local ".clean" file it will use
 //! that as input, for that directory and all child directories.
 
-/*
- * TODO:
- *
- * add automatic invocation of `cargo clean` and `pyclean` 
- * when such processes exist
- */
-
 use anyhow::{Context,Result};
 use glob::glob;
 use std::{env, fs, io::ErrorKind, path::Path, path::PathBuf};
+//use structopt::StructOpt;
 
 const config_fname: &str = "./cleanme";
 
 #[cfg(test)]
 mod test;
+
+/*
+
+In progress: cmdline arg to set wd, and helper programs (call in preference)
+
+struct Helpers {
+    cargo: bool,
+    pyclean: bool
+}
+
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "example", about = "An example of StructOpt usage.")]
+struct Opt {
+    #[structopt(parse(from_os_str))]
+    wd: Option<PathBuf>,
+}
+*/
 
 fn get_target(pwd: &Path) -> Option<Vec<String>> {
     Some(
@@ -62,7 +74,7 @@ fn clean(wd: &Path, clean_tgt: &Option<Vec<String>>) -> Result<()> {
             if let Some(remove) = remove {
                 for tgt in remove {
                     /*
-                     * tgt is a GlobResult, so IoErrors are handled 
+                     * tgt is a GlobResult, so IoErrors are handled
                      * (permission errors are not). Again, we should default to
                      * logging and try the next.
                      */
@@ -88,18 +100,21 @@ fn clean(wd: &Path, clean_tgt: &Option<Vec<String>>) -> Result<()> {
             if d.path().is_dir() {
                 //TODO: do we want to return error here? Or continue the "fire and forget"
                 //philosophy?
-                clean(&d.path(), clean_tgt)?; 
+                clean(&d.path(), clean_tgt)?;
             }
         }
     }
 
     //} else {
-    //    eprintln!("cannot read {}, skipping..", wd.display()); 
+    //    eprintln!("cannot read {}, skipping..", wd.display());
     //}
     Ok(())
 }
 
 fn main() -> Result<()> {
+    /*
+     * order of priorities: search stdin (io::read_to_string(&mut io::stdin())?), then $HOME, then $HOME/.config
+     */
     let clean_tgt = match env::var("HOME") {
         Ok(home) => get_target(&Path::new(&home)),
         _ => None,
