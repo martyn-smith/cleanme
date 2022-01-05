@@ -6,32 +6,56 @@
 //! that as input, for that directory and all child directories.
 
 use anyhow::{Context, Result};
+use dirs;
 use glob::glob;
-use std::{env, fs, io::ErrorKind, path::Path, path::PathBuf};
+use std::{env, fs, io::ErrorKind, path::Path, path::PathBuf, process::Command};
+
 //use structopt::StructOpt;
+//use dirs;
+use which::which;
 
 const CONFIG_FNAME: &str = "./cleanme";
 
 #[cfg(test)]
 mod test;
 
-/*
-
-In progress: cmdline arg to set wd, and helper programs (call in preference)
-
-struct Helpers {
+pub struct Helpers {
     cargo: bool,
+    git: bool,
+    npm: bool,
+    poetry: bool,
     pyclean: bool
 }
 
+impl Helpers {
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "example", about = "An example of StructOpt usage.")]
-struct Opt {
-    #[structopt(parse(from_os_str))]
-    wd: Option<PathBuf>,
+    fn new() -> Self {
+            Self {
+            cargo: which("cargo").is_ok(),
+            git: which("git").is_ok(),
+            npm: which("npm").is_ok(),
+            poetry: which("poetry").is_ok(),
+            pyclean: which("python3").is_ok()
+        }
+    }
+
+    fn run(&self, path: &Path) {
+        if self.cargo && Path::new("Cargo.toml").exists() {
+            //TODO: rm Cargo.lock as well
+            Command::new("cargo").args(&["clean"]).spawn().context("Cargo.toml but cargo failed");
+        }
+        if self.git && Path::new(".git").exists() {
+            Command::new("git").args(&["gc", "--aggressive", "--prune"]).spawn().context(".git file but git process failed");
+        }
+        if self.npm && Path::new("package.json").exists() {
+            Command::new("npm cache clean").args(&["force"]).spawn().context("package.json but npm failed");
+        }
+        if self.poetry && Path::new("pyproject.toml").exists() {
+            //TODO: poetry env remove here
+            Command::new("poetry cache clear").args(&["all"]).spawn().context("pyproject file but poetry failed");
+        }
+    }
 }
-*/
 
 fn get_target(pwd: &Path) -> Option<Vec<String>> {
     Some(
@@ -44,10 +68,11 @@ fn get_target(pwd: &Path) -> Option<Vec<String>> {
     )
 }
 
-fn clean(wd: &Path, clean_tgt: &Option<Vec<String>>) -> Result<()> {
+fn clean(wd: &Path, h: &Helpers, clean_tgt: &Option<Vec<String>>) -> Result<()> {
     /*
      * Error handling: if we e.g. cannot access a directory, log to stderr and carry on.
      */
+    dbg!(&wd);
     let read =
         fs::read_dir(wd).context(format!("cannot read {} - check permissions", wd.display()))?;
     /*
@@ -100,9 +125,10 @@ fn clean(wd: &Path, clean_tgt: &Option<Vec<String>>) -> Result<()> {
      */
     for d in read.into_iter().flatten() {
         if d.path().is_dir() {
-            //TODO: do we want to return error here? Or continue the "fire and forget"
-            //philosophy?
-            clean(&d.path(), clean_tgt)?;
+            match clean(&d.path(), h, clean_tgt) {
+                Ok(()) => {},
+                Err(e) => {eprintln!("{}", e);}
+            };
         }
     }
 
@@ -116,10 +142,11 @@ fn main() -> Result<()> {
     /*
      * order of priorities: search stdin (io::read_to_string(&mut io::stdin())?), then $HOME, then $HOME/.config
      */
-    let clean_tgt = match env::var("HOME") {
-        Ok(home) => get_target(Path::new(&home)),
+    let clean_tgt = match dirs::home_dir() {
+        Some(home) => get_target(Path::new(&home)),
         _ => None,
     };
+    let aux = Helpers::new();
     let pwd = Path::new("./");
-    clean(pwd, &clean_tgt)
+    clean(pwd, &aux, &clean_tgt)
 }

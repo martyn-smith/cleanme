@@ -1,7 +1,21 @@
-use super::{clean, CONFIG_FNAME};
+use super::{clean, Helpers, CONFIG_FNAME};
 use std::env;
 use std::fs;
+use std::process::Command;
+use which::which;
 
+/*
+ * use std::iter;
+use rand::{Rng, thread_rng};
+use rand::distributions::Alphanumeric;
+
+let mut rng = thread_rng();
+let chars: String = iter::repeat(())
+        .map(|()| rng.sample(Alphanumeric))
+        .map(char::from)
+        .take(7)
+        .collect();
+*/
 /*
  * Caution:
  *
@@ -29,15 +43,27 @@ impl Drop for TestClean {
 }
 */
 
+/*
+ * CONSIDER:
+ *
+ * if we create a dir for each test, that guarantees reliability wrt permission errors.
+ * (and improves auditability a little)
+ * However, one thing we *want* to do is test graceful handling of permission errors.
+ * The best solution is probably a halfway house with one test running in directory root
+ * and the others in a specialised dir.
+ *
+ */
+
 #[test]
 fn cleans_file() {
     let root = env::temp_dir();
     env::set_current_dir(&root);
-    fs::File::create(root.join("testfile"))
+    fs::File::create(root.join("cleanme_test"))
         .expect("test creation failed; cannot create junk files");
-    fs::write(root.join(CONFIG_FNAME), "testfile")
+    fs::write(root.join(CONFIG_FNAME), "cleanme_test")
         .expect("test creation failed; cannot create config file");
-    clean(&root, &None).expect("cleaning failed :-(");
+    let h = Helpers::new();
+    clean(&root, &h, &None).expect("cleaning failed :-(");
     fs::remove_file(root.join(CONFIG_FNAME)).expect("cannot remove config file");
     //dbg!("{:?}", fs::read_dir(&root).unwrap().collect::<Vec<Result<fs::DirEntry, _>>>());
     assert!(!root.join("testfile").exists());
@@ -51,10 +77,23 @@ fn does_not_clean_file() {
         .expect("test creation failed; cannot create junk files");
     fs::write(root.join(CONFIG_FNAME), "")
         .expect("test creation failed; cannot create config file");
-    clean(&root, &None).expect("cleaning failed :-(");
+    let h = Helpers::new();
+    clean(&root, &h, &None).expect("cleaning failed :-(");
     fs::remove_file(root.join(CONFIG_FNAME)).expect("cannot remove config file");
     assert!(root.join("testfile").exists());
     fs::remove_file(root.join("testfile")).unwrap() //unreachable;
+}
+
+#[test]
+fn cleans_git() {
+    let root = env::temp_dir().join("cleanme_dir");
+    env::set_current_dir(&root);
+    if which::which("git").is_ok() {
+        Command::new("git").args(["init", "."]).spawn().expect("can't execute git!");
+        let h = Helpers::new();
+        clean(&root, &h, &None).expect("cleaning failed :-(");
+        fs::remove_dir_all(root).expect("cleanup failed");
+    }
 }
 
 #[test]
@@ -67,7 +106,8 @@ fn cleans_glob() {
         .expect("test creation failed; cannot create junk files");
     fs::write(root.join(CONFIG_FNAME), "testfile*")
         .expect("test creation failed; cannot create config file");
-    clean(&root, &None).expect("cleaning failed :-(");
+    let h = Helpers::new();
+    clean(&root, &h, &None).expect("cleaning failed :-(");
     fs::remove_file(root.join(CONFIG_FNAME)).expect("cannot remove config file");
     assert!(!root.join("testfile_1").exists());
     assert!(!root.join("testfile_2").exists());
@@ -80,11 +120,14 @@ fn cleans_dir() {
     fs::create_dir(root.join("testdir")).expect("test creation failed; cannot create directory");
     fs::write(root.join(CONFIG_FNAME), "testdir/")
         .expect("test creation failed; cannot create config file");
-    clean(&root, &None).expect("cleaning failed :-(");
-    fs::remove_file(root.join("clean"));
+    let h = Helpers::new();
+    clean(&root, &h, &None).expect("cleaning failed :-(");
     assert!(!root.join("testdir").exists());
+    fs::remove_dir_all(root.join("testdir")).expect("can't remove test directory");
 }
 
+
+/*
 #[test]
 fn traverses() {
     let root = env::temp_dir();
@@ -99,3 +142,4 @@ fn traverses() {
     assert!(!root.join("testdir/testfile").exists());
     fs::remove_dir(root.join("testdir"));
 }
+*/
