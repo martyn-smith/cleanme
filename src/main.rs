@@ -72,7 +72,7 @@ fn clean(wd: &Path, h: &Helpers, clean_tgt: &Option<Vec<String>>) -> Result<()> 
     /*
      * Error handling: if we e.g. cannot access a directory, log to stderr and carry on.
      */
-    dbg!(&wd);
+    //dbg!(&wd);
     let read =
         fs::read_dir(wd).context(format!("cannot read {} - check permissions", wd.display()))?;
     /*
@@ -84,6 +84,8 @@ fn clean(wd: &Path, h: &Helpers, clean_tgt: &Option<Vec<String>>) -> Result<()> 
         Some(_) => &local,
         None => clean_tgt,
     };
+
+    h.run(wd);
 
     //None here is unlikely but not impossible.
     if let Some(clean_tgt) = clean_tgt {
